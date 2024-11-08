@@ -17,7 +17,7 @@ OpeDB &OpeDB::getInstance()
 void OpeDB::init()
 {
     m_db.setHostName("localhost");
-    m_db.setDatabaseName("C:\\QT\\Project\\TCPServer\\cloud.db");
+    m_db.setDatabaseName("C:\\QT\\Project\\DXDisk\\TCPServer\\cloud.db");
     if(m_db.open())
     {
         qDebug() << "(OpeDB::init)数据库打开成功";

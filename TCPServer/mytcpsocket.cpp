@@ -14,6 +14,7 @@ MyTcpSocket::MyTcpSocket(QObject *parent)
 std::shared_ptr<PDU> MyTcpSocket::refreshDirPDU(QString pCurPath)
 {
     QDir dir(pCurPath);
+    qDebug() << pCurPath;
     QFileInfoList fileInfoList = dir.entryInfoList();   //将该路径下的所有文件信息存入列表
     //前两个文件信息.和..是此文件夹和上一级文件夹，不用将这两个数据传到客户端
     std::shared_ptr<PDU> pdu = mk_shared_PDU(
@@ -486,6 +487,7 @@ void MyTcpSocket::handleRqsPDU(std::shared_ptr<PDU> pdu)
                 fileRecv.totalSize = uploadFileSize;
                 fileRecv.recvedSize = 0;
                 m_curPath = uploadPath;
+                qDebug() << "服务器已准备接收上传文件";
             }
 
             //释放指针

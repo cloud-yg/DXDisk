@@ -15,6 +15,9 @@ TCPClient::TCPClient(QWidget *parent)
     , ui(new Ui::TCPClient)
 {
     ui->setupUi(this);
+
+    m_elapsedTimer = new QElapsedTimer;
+
     if(!isConnected)
     {
         ui->status_lab->setText("未连接");
@@ -31,7 +34,6 @@ TCPClient::TCPClient(QWidget *parent)
     connect(&m_tcpSocket, QOverload<QAbstractSocket::SocketError>::of(&QTcpSocket::errorOccurred),
             this, &TCPClient::onError);
     connect(&m_tcpSocket,SIGNAL(readyRead()),this,SLOT(recvMsg()));
-
 }
 
 TCPClient::~TCPClient()
@@ -275,6 +277,9 @@ void TCPClient::handleRpdPDU(std::shared_ptr<PDU> pdu)
                 QMessageBox::warning(this,"上传文件失败","打开文件失败");
                 return;
             }
+            m_elapsedTimer = new QElapsedTimer;
+            FileRecv &fileRecv = TCPClient::getInstance().getFileRecv();
+
             char *pBuffer = new char[4096]; //读取缓冲,实验测试4096效率较高
             qint64 ret = 0;     //实际读取数据数量
             while(1)
@@ -284,18 +289,20 @@ void TCPClient::handleRpdPDU(std::shared_ptr<PDU> pdu)
                 //上传进度
                 QString process = QString("%1%").arg((double)fileRecv.recvedSize/(double)fileRecv.totalSize*100);
                 //上传速度
-                secondTime = m_elapsedTimer.nsecsElapsed();
-                qDebug() <<"上传"<< secondTime;
-                double dv = (double)ret/(secondTime - firstTime) * 1000.0;
+                secondTime = m_elapsedTimer->nsecsElapsed();
+                double dv = (double)ret/(secondTime - firstTime) * 1000000000.0;
                 QString speed = std::isinf(dv) ? "INF" : byteConversion(dv) + "/S";
-                firstTime = secondTime;
 
+                firstTime = secondTime;
                 OpeWidget::getInstance().getFileTransferW()->updateFTWItem(fileRecv.recvedSize,
                                                                            process,
                                                                            speed,
                                                                            "正在上传");
                 if(ret > 0 && ret <=4096)   //如果读取到数据
+                {
                     TCPClient::getInstance().getTCPSocket().write(pBuffer,ret);//将读取的数据发送给服务器，服务器以二进制字节收取
+                    TCPClient::getInstance().getTCPSocket().flush(); // 确保数据立即发送
+                }
                 else if(ret == 0)break;     //读取结束
                 else
                 {
@@ -303,17 +310,16 @@ void TCPClient::handleRpdPDU(std::shared_ptr<PDU> pdu)
                                                                                process,
                                                                                "0",
                                                                                "上传失败");
-                    QMessageBox::warning(this,"上传文件失败","读取文件失败");
-                    break;
                 }
             }
-
-            m_elapsedTimer.invalidate();
+            m_elapsedTimer->invalidate();
             firstTime = 0;
             secondTime = 0;
 
             delete []pBuffer;
             pBuffer = nullptr;
+            qDebug() << "关闭上传文件线程";
+
             break;
         }
         case ENUM_MSG_TYPE_UPLOAD_FILE_RESPOND:     //上传文件回复
@@ -394,9 +400,9 @@ FileRecv &TCPClient::getFileRecv()
 
 void TCPClient::startElapsedTimer()
 {
-    m_elapsedTimer.restart();
-    firstTime = 0;
-    secondTime = 0;
+    // m_elapsedTimer->restart();
+    // firstTime = 0;
+    // secondTime = 0;
 }
 
 void TCPClient::recvMsg()
@@ -425,7 +431,7 @@ void TCPClient::recvMsg()
         //下载进度
         QString process = QString("%1%").arg((double)fileRecv.recvedSize/(double)fileRecv.totalSize*100);
         //下载速度
-        secondTime = m_elapsedTimer.nsecsElapsed();
+        secondTime = m_elapsedTimer->nsecsElapsed();
         double dv = (double)recvBuff.size()/(secondTime - firstTime) * 1000.0;
         QString speed = std::isinf(dv) ? "INF" : byteConversion(dv) + "/S";
         firstTime = secondTime;
@@ -439,7 +445,7 @@ void TCPClient::recvMsg()
         {
             fileRecv.file.close();
             fileRecv.recvingFlag = false;
-            m_elapsedTimer.invalidate();
+            m_elapsedTimer->invalidate();
             firstTime = 0;
             secondTime = 0;
             if(fileRecv.recvedSize == fileRecv.totalSize)
@@ -508,6 +514,7 @@ void TCPClient::on_regist_pb_clicked()
     }
 }
 
+
 //连接按键响应函数
 void TCPClient::on_connect_pb_clicked()
 {
@@ -532,6 +539,7 @@ void TCPClient::on_connect_pb_clicked()
         OpeWidget::getInstance().getStatus()->setPalette(palette);
         //连接服务器
         m_tcpSocket.connectToHost(QHostAddress(m_strIP),m_usPort);
+        // m_tcpSocket.connectToHost("127.0.0.1",8888); //本地连接
     }
 }
 

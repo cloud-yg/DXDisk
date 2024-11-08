@@ -6,6 +6,7 @@
 #include <QTcpSocket>
 #include "protocol.h"
 #include "opewidget.h"
+#include <QTimer>
 #include <QElapsedTimer>
 
 QT_BEGIN_NAMESPACE
@@ -65,7 +66,7 @@ private:
 
     FileRecv fileRecv;
 
-    QElapsedTimer m_elapsedTimer;
+    QElapsedTimer *m_elapsedTimer;
     qint64 firstTime = 0;
     qint64 secondTime = 0;
 };
